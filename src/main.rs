@@ -84,20 +84,33 @@ impl ApplicationHandler for App {
         });
     }
 
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        // Belt-and-suspenders: covers Cmd+Q / dock-quit paths that bypass
+        // CloseRequested.  Safe to call even if already None.
+        self.state = None;
+    }
+
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
         _id: WindowId,
         event: WindowEvent,
     ) {
+        // Drop state eagerly on any terminal window event so that the
+        // softbuffer surface/context are destroyed while the display
+        // connection is still valid.  On Linux/Wayland the surface sends
+        // wl_surface destroy messages on drop; if those happen after the
+        // connection is torn down you get a segfault.  On X11 panicking
+        // inside a C callback (from an unwrap failure) is UB.
+        if matches!(event, WindowEvent::CloseRequested | WindowEvent::Destroyed) {
+            self.state = None;
+            event_loop.exit();
+            return;
+        }
+
         let Some(state) = self.state.as_mut() else { return };
 
         match event {
-            // ----------------------------------------------------------------
-            // Lifecycle
-            // ----------------------------------------------------------------
-            WindowEvent::CloseRequested => event_loop.exit(),
-
             WindowEvent::Resized(size) => {
                 state.canvas.resize(size.width.max(1), size.height.max(1));
                 present(state);
@@ -251,22 +264,24 @@ fn present(state: &mut State) {
         return;
     }
 
-    state
-        .surface
-        .resize(NonZeroU32::new(w).unwrap(), NonZeroU32::new(h).unwrap())
-        .unwrap();
+    // Use ? via a closure so panics never unwind through C frames (X11/Wayland).
+    let mut render = || -> Option<()> {
+        state
+            .surface
+            .resize(NonZeroU32::new(w)?, NonZeroU32::new(h)?)
+            .ok()?;
 
-    let mut buf = state.surface.buffer_mut().unwrap();
-    let pixels = state.canvas.pixels();
-    let len = (w * h) as usize;
-    // Canvas and surface may temporarily disagree on size during resize events.
-    let copy = len.min(pixels.len());
-    buf[..copy].copy_from_slice(&pixels[..copy]);
-    // Fill any overflow rows (rare transient state) with white.
-    if copy < len {
-        buf[copy..len].fill(0x00FFFFFF);
-    }
-    buf.present().unwrap();
+        let mut buf = state.surface.buffer_mut().ok()?;
+        let pixels = state.canvas.pixels();
+        let len = (w * h) as usize;
+        let copy = len.min(pixels.len());
+        buf[..copy].copy_from_slice(&pixels[..copy]);
+        if copy < len {
+            buf[copy..len].fill(0x00FFFFFF);
+        }
+        buf.present().ok()
+    };
+    render();
 }
 
 // ---------------------------------------------------------------------------
