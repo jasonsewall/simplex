@@ -181,24 +181,6 @@ impl ApplicationHandler for App {
 
 fn handle_key(state: &mut State, key: &Key, mods: ModifiersState) {
     match key {
-        Key::Named(NamedKey::Escape) => state.canvas.clear(),
-
-        Key::Character(c) => {
-            let s = c.as_str();
-
-            // Ctrl chords first.
-            if mods.control_key() {
-                match s {
-                    _ => {}
-                }
-                return;
-            }
-
-            match s {
-                _ => {}
-            }
-        }
-
         _ => {}
     }
 
