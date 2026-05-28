@@ -35,10 +35,10 @@ impl Canvas {
 
     pub fn grid(&mut self, spacing: u32) {
         for x in (0..self.width).step_by(spacing as usize) {
-            self.stroke(x as i32, 0, x as i32, self.height as i32, 0x0);
+            self.stroke0(x as i32, 0, x as i32, self.height as i32, 0x0);
         }
         for y in (0..self.height).step_by(spacing as usize) {
-            self.stroke(0, y as i32, self.width as i32, y as i32, 0x0);
+            self.stroke0(0, y as i32, self.width as i32, y as i32, 0x0);
         }
     }
 
@@ -62,7 +62,18 @@ impl Canvas {
 
     /// Draw a continuous stroke from (x0,y0) to (x1,y1) using the active tool.
     /// For the first point of a new stroke, call with x0==x1, y0==y1.
-    pub fn stroke(&mut self, x0: i32, y0: i32, x1: i32, y1: i32, color: u32) {
+    pub fn stroke(&mut self, x0: i32, y0: i32, x1: i32, y1: i32) {
+        let color = match self.tool {
+            Tool::Pen => self.color,
+            Tool::Eraser => BACKGROUND,
+        };
+        let r = self.brush_size as i32;
+        for (x, y) in bresenham(x0, y0, x1, y1) {
+            self.stamp_circle(x, y, r, color);
+        }
+    }
+
+    pub fn stroke0(&mut self, x0: i32, y0: i32, x1: i32, y1: i32, color: u32) {
         for (x, y) in bresenham(x0, y0, x1, y1) {
             self.stamp_circle(x, y, 1, color);
         }

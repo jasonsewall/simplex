@@ -224,8 +224,8 @@ fn present(state: &mut State) {
             .ok()?;
 
         let mut buf = state.surface.buffer_mut().ok()?;
-        // state.canvas.clear();
-        // state.canvas.grid(10);
+        state.canvas.clear();
+        state.canvas.grid(10);
         let pixels = state.canvas.pixels();
         let len = (w * h) as usize;
         let copy = len.min(pixels.len());
