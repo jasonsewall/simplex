@@ -134,7 +134,7 @@ impl ApplicationHandler for App {
             // Mouse movement — draw if button held
             // ----------------------------------------------------------------
             WindowEvent::CursorMoved { position, .. } => {
-                let prev = state.input.cursor;
+                let _prev = state.input.cursor;
                 let cur = (position.x as f32, position.y as f32);
                 state.input.cursor = cur;
             }
@@ -163,7 +163,7 @@ impl ApplicationHandler for App {
             // Scroll wheel — adjust brush size
             // ----------------------------------------------------------------
             WindowEvent::MouseWheel { delta, .. } => {
-                let dy = match delta {
+                let _dy = match delta {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 20.0,
                 };
@@ -224,8 +224,8 @@ fn present(state: &mut State) {
             .ok()?;
 
         let mut buf = state.surface.buffer_mut().ok()?;
-        state.canvas.clear();
-        state.canvas.grid(10);
+        // state.canvas.clear();
+        // state.canvas.grid(10);
         let pixels = state.canvas.pixels();
         let len = (w * h) as usize;
         let copy = len.min(pixels.len());

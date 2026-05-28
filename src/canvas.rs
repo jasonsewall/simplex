@@ -11,13 +11,11 @@ const BACKGROUND: u32 = 0x00FFFFFF;
 
 impl Canvas {
     pub fn new(width: u32, height: u32) -> Self {
-        let mut me = Self {
+        Self {
             width,
             height,
             pixels: vec![BACKGROUND; (width * height) as usize],
-        };
-        me.grid(10);
-        me
+        }
     }
 
     /// Resize the canvas, preserving existing content in the top-left region.
