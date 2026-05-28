@@ -11,17 +11,11 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Window, WindowId};
 
-use canvas::{Canvas, Tool};
+use canvas::Canvas;
 use input::InputState;
 
 const INIT_W: u32 = 1280;
-const INIT_H: u32 = 720;
-
-const HELP: &str =
-    "Draw2D  |  P: pen  E: eraser  \
-     1-7: colors  [ ]: brush size  \
-     scroll: brush size  \
-     Ctrl+Z: undo  Ctrl+C / Esc: clear";
+const INIT_H: u32 = 1280;
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -63,16 +57,14 @@ impl ApplicationHandler for App {
             event_loop
                 .create_window(
                     Window::default_attributes()
-                        .with_title(HELP)
+                        .with_title("Simplex")
                         .with_inner_size(PhysicalSize::new(INIT_W, INIT_H)),
                 )
                 .expect("create window"),
         );
 
-        let context =
-            softbuffer::Context::new(window.clone()).expect("create softbuffer context");
-        let surface =
-            softbuffer::Surface::new(&context, window.clone()).expect("create surface");
+        let context = softbuffer::Context::new(window.clone()).expect("create softbuffer context");
+        let surface = softbuffer::Surface::new(&context, window.clone()).expect("create surface");
 
         self.state = Some(State {
             surface,
@@ -90,12 +82,7 @@ impl ApplicationHandler for App {
         self.state = None;
     }
 
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        _id: WindowId,
-        event: WindowEvent,
-    ) {
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         // Drop state eagerly on any terminal window event so that the
         // softbuffer surface/context are destroyed while the display
         // connection is still valid.  On Linux/Wayland the surface sends
@@ -108,7 +95,9 @@ impl ApplicationHandler for App {
             return;
         }
 
-        let Some(state) = self.state.as_mut() else { return };
+        let Some(state) = self.state.as_mut() else {
+            return;
+        };
 
         match event {
             WindowEvent::Resized(size) => {
@@ -148,32 +137,19 @@ impl ApplicationHandler for App {
                 let prev = state.input.cursor;
                 let cur = (position.x as f32, position.y as f32);
                 state.input.cursor = cur;
-
-                if state.input.lmb_down {
-                    state.canvas.stroke(
-                        prev.0 as i32,
-                        prev.1 as i32,
-                        cur.0 as i32,
-                        cur.1 as i32,
-                    );
-                    present(state);
-                }
             }
 
             // ----------------------------------------------------------------
             // Mouse buttons
             // ----------------------------------------------------------------
-            WindowEvent::MouseInput { button, state: btn_state, .. } => {
+            WindowEvent::MouseInput {
+                button,
+                state: btn_state,
+                ..
+            } => {
                 let pressed = btn_state == ElementState::Pressed;
                 match button {
                     MouseButton::Left => {
-                        if pressed {
-                            state.canvas.push_history();
-                            // Stamp a single dot so clicking without dragging still draws.
-                            let (cx, cy) = state.input.cursor;
-                            state.canvas.stroke(cx as i32, cy as i32, cx as i32, cy as i32);
-                            present(state);
-                        }
                         state.input.lmb_down = pressed;
                     }
                     MouseButton::Right => {
@@ -191,9 +167,6 @@ impl ApplicationHandler for App {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 20.0,
                 };
-                state.canvas.adjust_brush(dy);
-                // Update title to show new brush size.
-                update_title(state);
                 present(state);
             }
 
@@ -216,33 +189,12 @@ fn handle_key(state: &mut State, key: &Key, mods: ModifiersState) {
             // Ctrl chords first.
             if mods.control_key() {
                 match s {
-                    "z" | "Z" => state.canvas.undo(),
-                    "c" | "C" => state.canvas.clear(),
                     _ => {}
                 }
                 return;
             }
 
             match s {
-                // Tools
-                "p" | "P" => state.canvas.set_tool(Tool::Pen),
-                "e" | "E" => state.canvas.set_tool(Tool::Eraser),
-
-                // Color palette  (0x00RRGGBB)
-                "1" => state.canvas.set_color(0x111111), // near-black
-                "2" => state.canvas.set_color(0xCC0000), // red
-                "3" => state.canvas.set_color(0x007700), // green
-                "4" => state.canvas.set_color(0x0055CC), // blue
-                "5" => state.canvas.set_color(0xFF8800), // orange
-                "6" => state.canvas.set_color(0x8800CC), // purple
-                "7" => state.canvas.set_color(0xFFFFFF), // white (paint-over)
-
-                // Brush size
-                "[" | "{" => state.canvas.adjust_brush(-1.0),
-                "]" | "}" => state.canvas.adjust_brush(1.0),
-                "-" | "_" => state.canvas.adjust_brush(-2.0),
-                "=" | "+" => state.canvas.adjust_brush(2.0),
-
                 _ => {}
             }
         }
@@ -272,6 +224,8 @@ fn present(state: &mut State) {
             .ok()?;
 
         let mut buf = state.surface.buffer_mut().ok()?;
+        state.canvas.clear();
+        state.canvas.grid(10);
         let pixels = state.canvas.pixels();
         let len = (w * h) as usize;
         let copy = len.min(pixels.len());
@@ -289,15 +243,6 @@ fn present(state: &mut State) {
 // ---------------------------------------------------------------------------
 
 fn update_title(state: &mut State) {
-    let tool = match state.canvas.tool {
-        Tool::Pen => "pen",
-        Tool::Eraser => "eraser",
-    };
-    let color = state.canvas.color;
-    let brush = state.canvas.brush_size;
-    let title = format!(
-        "Draw2D  |  tool: {tool}  color: #{color:06X}  brush: {brush}px  \
-         | P/E: tool  1-7: color  []: size  Ctrl+Z: undo  Esc: clear"
-    );
+    let title = format!("Simplex");
     state.window.set_title(&title);
 }
